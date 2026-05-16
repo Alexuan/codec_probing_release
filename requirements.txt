@@ -1,0 +1,33 @@
+# Core
+torch>=2.0
+torchaudio>=2.0
+transformers>=4.40
+numpy
+scipy
+scikit-learn
+pandas
+matplotlib
+tqdm
+
+# Audio I/O
+librosa
+soundfile
+
+# Data preparation
+nltk             # WordNet synonyms
+cmudict          # CMU Pronouncing Dictionary
+praat-textgrids  # MFA TextGrid parser (`from textgrids import TextGrid`)
+jiwer            # phoneme-level WER for phonetic distance
+
+# Articulatory experiment (Exp 2)
+opencv-python    # sanity-check rtMRI frame loading
+rsatoolbox       # optional: RSA fallback (paper reports PWCCA only)
+
+# Codec-specific (install the ones you actually use)
+# transformers already provides EnCodec and MIMI via HuggingFace
+descript-audio-codec
+audiotools
+# MIMO (Xiaomi MiMo-Audio-Tokenizer): vendored package, install via
+#   pip install -e path/to/MiMo_Audio_Tokenizer
+# plus flash-attn at runtime:
+#   pip install flash-attn --no-build-isolation
