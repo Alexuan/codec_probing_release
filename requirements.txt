@@ -1,33 +1,38 @@
-# Core
-torch>=2.0
-torchaudio>=2.0
-transformers>=4.40
+# ---------------------------------------------------------------------------
+# Tier 0 — reproduce the figures from the shipped caches (notebook 04). CPU-only.
+# ---------------------------------------------------------------------------
 numpy
 scipy
 scikit-learn
 pandas
 matplotlib
 tqdm
+torch>=2.0
+jupyter            # to run the notebooks (nbconvert/ipykernel)
 
-# Audio I/O
-librosa
+# ---------------------------------------------------------------------------
+# Tier 1 — recompute codec features (notebooks 01/02/03). Needs a GPU in practice.
+# ---------------------------------------------------------------------------
+torchaudio>=2.0
+transformers>=4.40   # provides EnCodec (facebook/encodec_24khz) and MIMI (kyutai/mimi)
 soundfile
+librosa
+rsatoolbox           # optional: RSA (the paper reports PWCCA only)
 
-# Data preparation
-nltk             # WordNet synonyms
-cmudict          # CMU Pronouncing Dictionary
-praat-textgrids  # MFA TextGrid parser (`from textgrids import TextGrid`)
-jiwer            # phoneme-level WER for phonetic distance
-
-# Articulatory experiment (Exp 2)
-opencv-python    # sanity-check rtMRI frame loading
-rsatoolbox       # optional: RSA fallback (paper reports PWCCA only)
-
-# Codec-specific (install the ones you actually use)
-# transformers already provides EnCodec and MIMI via HuggingFace
+# DAC backend (Descript Audio Codec). This also pulls `descript-audiotools`
+# (import name `audiotools`) — do NOT install the unrelated PyPI `audiotools`.
 descript-audio-codec
-audiotools
-# MIMO (Xiaomi MiMo-Audio-Tokenizer): vendored package, install via
-#   pip install -e path/to/MiMo_Audio_Tokenizer
+
+# MIMO backend (Xiaomi MiMo-Audio-Tokenizer): vendored package, install via
+#   pip install -e /path/to/MiMo-Audio-Tokenizer
 # plus flash-attn at runtime:
 #   pip install flash-attn --no-build-isolation
+
+# ---------------------------------------------------------------------------
+# Tier 2 — build the LibriSpeech word DataFrame + word maps from scratch
+# (scripts/prepare_librispeech.py). Not needed if you use the shipped pickles.
+# ---------------------------------------------------------------------------
+nltk               # WordNet synonyms
+cmudict            # CMU Pronouncing Dictionary (phoneme sequences)
+praat-textgrids    # MFA TextGrid parser (`from textgrids import TextGrid`)
+jiwer              # phoneme-level edit distance for the synonym/homophone split

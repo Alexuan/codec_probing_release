@@ -1,0 +1,23 @@
+codec-probing
+Copyright 2026 The codec-probing authors
+
+This product includes software and methods developed by third parties:
+
+* src/analysis/pwcca.py — Projection-Weighted CCA, adapted from
+  google/svcca (https://github.com/google/svcca), Apache License 2.0.
+  The original copyright header is preserved in that file.
+
+* src/data/word_pairs.py — the synonym / near-homophone word-pair probing
+  methodology follows:
+    Minsu Choi et al., "Self-Supervised Speech Representations are More
+    Phonetic than Semantic," Interspeech 2024.
+    (reference implementation: github.com/juice500ml/phonetic_semantic_probing,
+    Apache License 2.0)
+
+* src/vtd/ — vocal-tract-distance extraction operates on articulator contours
+  produced by the USC SPAN real-time MRI segmentation toolbox; the rtMRI
+  75-Speaker corpus is distributed separately under its own data-use agreement.
+
+The neural codecs probed in this work (EnCodec, DAC, MIMI, MIMO) are loaded
+from their respective upstream releases and remain under their original
+licenses.

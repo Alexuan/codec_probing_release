@@ -1,0 +1,18 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.ipynb_checkpoints/
+
+# OS
+.DS_Store
+
+# Large data — fetched via scripts/download_data.py (Zenodo), not committed
+data/output_vtd/
+
+# Local scratch
+*.log
+.venv/
+venv/
+
+references/*

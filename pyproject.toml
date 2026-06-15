@@ -1,0 +1,45 @@
+[build-system]
+requires = ["setuptools>=64"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "codec-probing"
+version = "0.1.0"
+description = "Speech Codec Probing from Semantic and Phonetic Perspectives (arXiv:2603.10371) — reference code"
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "Apache-2.0" }
+authors = [
+  { name = "Xuan Shi" },
+]
+
+# Tier 0 (figure reproduction) + the EnCodec/MIMI feature extractors (Tier 1).
+# These are enough to run notebook 04 and to extract features with EnCodec/MIMI.
+dependencies = [
+  "numpy",
+  "scipy",
+  "scikit-learn",
+  "pandas",
+  "matplotlib",
+  "tqdm",
+  "torch>=2.0",
+  "torchaudio>=2.0",
+  "transformers>=4.40",
+  "soundfile",
+  "librosa",
+  "jupyter",
+]
+
+[project.optional-dependencies]
+# DAC backend — pulls `descript-audiotools` (import name `audiotools`).
+dac = ["descript-audio-codec"]
+# Building the LibriSpeech word DataFrame + maps from scratch (Tier 2).
+dataprep = ["nltk", "cmudict", "praat-textgrids", "jiwer"]
+# Optional RSA metric (paper reports PWCCA only).
+rsa = ["rsatoolbox"]
+all = ["descript-audio-codec", "nltk", "cmudict", "praat-textgrids", "jiwer", "rsatoolbox"]
+# NOTE: MIMO (Xiaomi MiMo-Audio-Tokenizer) is a vendored package + flash-attn and
+# is installed manually — see README.
+
+[tool.setuptools]
+packages = ["src"]

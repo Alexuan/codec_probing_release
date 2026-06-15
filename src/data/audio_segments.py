@@ -6,11 +6,9 @@ standalone ``.wav`` files for one-off auditing.
 """
 
 import os
-from typing import Iterable, List
+from typing import List
 
-import numpy as np
 import pandas as pd
-import soundfile as sf
 
 
 def cut_segments(
@@ -24,6 +22,7 @@ def cut_segments(
     Returns the list of written paths in the same order as ``df`` rows.
     """
     import librosa
+    import soundfile as sf
 
     os.makedirs(output_dir, exist_ok=True)
     paths = []
