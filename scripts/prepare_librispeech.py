@@ -1,9 +1,11 @@
 """Build the LibriSpeech word-occurrence DataFrame and synonym / homophone maps.
 
-The underlying functions are a verbatim port (Apache 2.0) of
-https://github.com/juice500ml/phonetic_semantic_probing — see
-``src/data/_juice500ml.py``. This wrapper just exposes a single CLI entry
-point and writes the two pickles consumed by the probing notebooks.
+Writes the two pickles consumed by the probing notebooks. The DataFrame stores
+audio paths **relative to the LibriSpeech root** (e.g. ``dev-clean/<spk>/...``),
+so it is portable: at run time the notebooks join it with ``LIBRISPEECH_DIR``
+(see ``src.data.resolve_audio_paths``). The df is built from the TextGrid tree
+alone; ``--librispeech-dir`` is optional and only used to sanity-check that the
+audio actually exists.
 
 Outputs (under ``--output-dir``):
   - ``librispeech.df.pkl``    — one row per MFA-aligned word occurrence
@@ -12,11 +14,10 @@ Outputs (under ``--output-dir``):
 Example::
 
     python scripts/prepare_librispeech.py \
-        --librispeech-dir /data/xuanshi/DATA/LibriSpeech \
-        --textgrid-dir    /data/xuanshi/DATA/LibriSpeech_MFA \
+        --textgrid-dir    /path/to/librispeech_alignments \
         --output-dir      data/word_pairs \
         --splits dev-clean test-clean \
-        --threshold 0.4
+        --librispeech-dir /path/to/LibriSpeech   # optional: verify audio exists
 """
 
 from __future__ import annotations
@@ -34,12 +35,12 @@ if REPO_ROOT not in sys.path:
 
 def _parse_args() -> argparse.Namespace:
     p = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    p.add_argument("--librispeech-dir", type=Path, required=True,
-                   help="Root of LibriSpeech wavs (contains dev-clean/, test-clean/, ...).")
     p.add_argument("--textgrid-dir", type=Path, required=True,
-                   help="Root of MFA TextGrids (same layout as LibriSpeech).")
+                   help="Root of MFA TextGrids, laid out as <split>/<spk>/<chapter>/<utt>.TextGrid.")
     p.add_argument("--output-dir", type=Path, required=True,
                    help="Where to write .df.pkl and .wordmap.pkl.")
+    p.add_argument("--librispeech-dir", type=Path, default=None,
+                   help="Optional: LibriSpeech root, used only to verify the audio exists.")
     p.add_argument("--splits", nargs="+", default=["dev-clean", "test-clean"],
                    help="LibriSpeech splits to include.")
     p.add_argument("--threshold", type=float, default=0.4,
@@ -66,13 +67,21 @@ def main() -> int:
         print(f"reusing existing DataFrame: {df_path} ({len(df)} rows)")
     else:
         df = build_librispeech_dataframe(
-            dataset_path=args.librispeech_dir,
             textgrid_path=args.textgrid_dir,
             splits=tuple(args.splits),
         )
         df.to_pickle(df_path)
         print(f"wrote {df_path}  ({len(df)} word occurrences, "
-              f"{df.text.nunique()} unique words)")
+              f"{df.text.nunique()} unique words; paths relative to the LibriSpeech root)")
+
+    # Optional sanity check: do the relative paths resolve under --librispeech-dir?
+    if args.librispeech_dir is not None:
+        sample = df.path.iloc[0]
+        full = os.path.join(str(args.librispeech_dir), sample)
+        ok = os.path.exists(full)
+        print(f"audio check: {full} -> {'found' if ok else 'MISSING'}")
+        if not ok:
+            print("  (set LIBRISPEECH_DIR to the root that contains dev-clean/ test-clean/ when running notebooks)")
 
     wordmaps = build_wordmaps(
         df,

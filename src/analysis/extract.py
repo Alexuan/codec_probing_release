@@ -1,13 +1,18 @@
-"""Per-row codec-feature extraction with word-boundary slicing and pooling.
+"""Per-word codec-feature extraction with **audio slicing** + time pooling.
 
-Closely mirrors ``extract_features.py`` in the juice500ml reference repo,
-adapted to neural codecs: each unique ``path`` in the DataFrame is encoded
-once, producing ``[L, T, D]`` hidden states; each row is then sliced by its
-``(start, finish)`` seconds on the codec's own frame grid and pooled into
-``[L, D]`` per row.
+Mirrors the verified word-pair pipeline (``extract_features*.py`` with
+``slice=True``): for each MFA-aligned word we slice the *audio* to
+``[start, finish]``, encode that word's audio with the codec, and pool over all
+of its frames into ``[L, D]`` for the row.
+
+This is NOT the same as encoding the whole utterance once and slicing the
+*features* afterwards — because of the encoder's receptive field / padding the
+two give materially different numbers, so feature-slicing is intentionally not
+used here.
 """
 
-from typing import Optional
+import os
+import tempfile
 
 import numpy as np
 import pandas as pd
@@ -16,39 +21,13 @@ from tqdm import tqdm
 from ..codecs.base import BaseCodec
 
 
-def _frame_index(second: float, total_frames: int, audio_duration_s: float) -> int:
-    """Convert a wall-clock time to a frame index on the codec's grid."""
-    if audio_duration_s <= 0:
-        return 0
-    idx = int(round(second / audio_duration_s * total_frames))
-    return min(max(idx, 0), total_frames - 1)
-
-
 def _pool(feats: np.ndarray, pool: str) -> np.ndarray:
+    """Pool a single layer's ``[T, D]`` frames over time -> ``[D]``."""
     if pool == "mean":
         return feats.mean(axis=0)
     if pool == "center":
         return feats[len(feats) // 2]
     raise ValueError(f"unknown pool {pool!r}")
-
-
-def _slice_and_pool(
-    feats_layered: np.ndarray, start_s: float, finish_s: float, audio_duration_s: float, pool: str
-) -> np.ndarray:
-    """Slice ``[L, T, D]`` features by time and pool over time → ``[L, D]``."""
-    L, T, _D = feats_layered.shape
-    a = _frame_index(start_s, T, audio_duration_s)
-    b = _frame_index(finish_s, T, audio_duration_s)
-    if b <= a:
-        b = a + 1
-    return np.stack([_pool(feats_layered[l, a:b], pool) for l in range(L)], axis=0)
-
-
-def _audio_duration(path: str) -> float:
-    import soundfile as sf
-
-    info = sf.info(path)
-    return info.frames / float(info.samplerate)
 
 
 def extract_codec_features(
@@ -58,20 +37,72 @@ def extract_codec_features(
     feat_column: str = "feat",
     progress: bool = True,
 ) -> pd.DataFrame:
-    """Encode each unique audio path with ``codec`` and attach a per-row pooled
-    feature ``feat_column`` of shape ``[L, D]`` to a copy of ``df``."""
+    """Attach a per-row pooled feature ``feat_column`` of shape ``[L, D]``.
+
+    For each row the audio is read at its native sample rate, sliced to the
+    word's ``[start, finish]`` window, written to a temporary wav, and encoded
+    by ``codec`` (which loads + resamples it exactly as it would any audio
+    file). Rows whose file is unreadable or whose slice yields no frames are
+    skipped (the dev pipeline's "filtered due to empty tokens" behaviour).
+    """
+    import soundfile as sf
+
     out = df.copy()
     out[feat_column] = None
 
-    paths = sorted(out.path.unique())
-    iterator = tqdm(paths, desc=f"{codec.name}: encode") if progress else paths
-    for path in iterator:
-        feats, _T, _D = codec.extract_hidden_states(path)
-        duration = _audio_duration(path)
-        for idx, row in out[out.path == path].iterrows():
-            out.at[idx, feat_column] = _slice_and_pool(
-                feats, float(row.start), float(row.finish), duration, pool
-            )
+    audio_cache: dict = {}   # path -> (waveform[native sr], sr) or None
+    n_skipped = 0
+
+    rows = out.itertuples()
+    if progress:
+        rows = tqdm(rows, total=len(out), desc=f"{codec.name}: slice+encode")
+
+    for row in rows:
+        path = row.path
+        if path not in audio_cache:
+            try:
+                wav, sr = sf.read(path, dtype="float32")
+                if getattr(wav, "ndim", 1) > 1:
+                    wav = wav.mean(axis=1)   # to mono
+                audio_cache[path] = (wav, sr)
+            except Exception as e:
+                audio_cache[path] = None
+                print(f"  skip (cannot read {path}): {type(e).__name__}: {str(e)[:80]}")
+        rec = audio_cache[path]
+        if rec is None:
+            n_skipped += 1
+            continue
+
+        wav, sr = rec
+        a = max(int(float(row.start) * sr), 0)
+        b = min(int(float(row.finish) * sr), len(wav))
+        seg = wav[a:b]
+        if seg.size == 0:
+            n_skipped += 1
+            continue
+
+        with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as tf:
+            tmp = tf.name
+        try:
+            sf.write(tmp, seg, sr)
+            feats, T, _D = codec.extract_hidden_states(tmp)   # [L, T, D] of the word's audio
+        except Exception as e:
+            n_skipped += 1
+            print(f"  skip (encode failed, {type(e).__name__}) {os.path.basename(path)} [{row.start:.2f},{row.finish:.2f}]")
+            continue
+        finally:
+            if os.path.exists(tmp):
+                os.unlink(tmp)
+
+        if T == 0:
+            n_skipped += 1
+            continue
+        out.at[row.Index, feat_column] = np.stack(
+            [_pool(feats[l], pool) for l in range(feats.shape[0])], axis=0
+        )  # [L, D]
+
+    if n_skipped:
+        print(f"skipped {n_skipped}/{len(out)} rows (unreadable file / empty slice / zero frames)")
     return out
 
 

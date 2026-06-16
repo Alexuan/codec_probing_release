@@ -15,8 +15,8 @@ Outputs::
 Example::
 
     python scripts/compute_vtd_batch.py \
-        --contour-dir /data/xuanshi/DATA/SPAN/SPAN/span_75speakers_annot16 \
-        --grid-dir    /data/xuanshi/DATA/SPAN/SPAN/grids \
+        --contour-dir /path/to/SPAN/span_75speakers_annot16 \
+        --grid-dir    /path/to/SPAN/grids \
         --output-dir  data/output_vtd
 """
 

@@ -64,22 +64,24 @@ This reads `data/euclidean_cache/*.pkl` (Fig 2), `data/output_stats_cache/cca_*.
 
 | Notebook | Output | Extra inputs |
 |---|---|---|
-| `01_semantic_phonetic_probing.ipynb` | `data/euclidean_cache/{codec}.pkl` | shipped `data/word_pairs/librispeech.df.pkl` |
+| `01_semantic_phonetic_probing.ipynb` | `data/euclidean_cache/{codec}.pkl` | shipped `librispeech.df.pkl` + `LIBRISPEECH_DIR` audio |
 | `02_articulatory_probing.ipynb` | `data/output_stats_cache/cca_*.json` | `data/output_vtd/` (Zenodo) + `SPAN_SPEECH_DIR` audio |
 | `03_speech_text_alignment.ipynb` | `data/cka_results.pkl` | paired LLM checkpoints |
 
-Set machine-specific locations via environment variables (no paths are hard-coded):
+Set machine-specific locations via environment variables (no paths are hard-coded;
+audio paths in `df.pkl` are stored **relative** to the LibriSpeech root and resolved here):
 
 ```bash
-export SPAN_SPEECH_DIR=/path/to/SPAN          # parent of <sub_id>/2drt/audio/<track>_audio.wav
+export LIBRISPEECH_DIR=/path/to/LibriSpeech    # root containing dev-clean/ test-clean/ (default: ./data/LibriSpeech)
+export SPAN_SPEECH_DIR=/path/to/SPAN           # parent of <sub_id>/2drt/audio/<track>_audio.wav
 export MIMO_CHECKPOINT=/path/to/MiMo-Audio-Tokenizer
 ```
 
 **From scratch (Tier 2):**
 
 ```bash
-# LibriSpeech (dev/test-clean) + MFA TextGrids -> word DataFrame + maps
-python scripts/prepare_librispeech.py --librispeech-dir <wavs> --textgrid-dir <MFA> --output-dir data/word_pairs
+# MFA TextGrids -> word DataFrame + maps (paths stored RELATIVE to the LibriSpeech root)
+python scripts/prepare_librispeech.py --textgrid-dir <MFA> --output-dir data/word_pairs
 # rtMRI MATLAB contours + grids -> per-track VTD .npy
 python scripts/compute_vtd_batch.py --contour-dir <mat> --grid-dir <grids> --output-dir data/output_vtd
 ```
@@ -100,7 +102,8 @@ where `feats[k]` is the decoded output **accumulated through residual quantizer 
 ## Data
 
 * **Shipped in git** (small): `data/word_pairs/` (LibriSpeech word DataFrame + synonym/homophone
-  maps, stored as plain types), `data/euclidean_cache/`, `data/output_stats_cache/`,
+  maps, plain types; audio paths stored **relative** to the LibriSpeech root — set `LIBRISPEECH_DIR`
+  to use them), `data/euclidean_cache/`, `data/output_stats_cache/`,
   `data/cka_results.pkl`. These are enough for `notebooks/04`.
 * **`data/output_vtd/`** (1.1 GB derived VTD arrays) — fetched from Zenodo:
   `python scripts/download_data.py` (see `data/MANIFEST.md` for the DOI + checksums).

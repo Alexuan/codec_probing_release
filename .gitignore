@@ -16,3 +16,5 @@ data/output_vtd/
 venv/
 
 references/*
+librispeech/*
+librispeech_alignments/*

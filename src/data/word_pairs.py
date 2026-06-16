@@ -87,14 +87,21 @@ def _synonyms_for(word: str, lang: str = "eng") -> set:
 
 
 def build_librispeech_dataframe(
-    dataset_path: Path, textgrid_path: Path,
+    textgrid_path: Path,
     splits: Sequence[str] = ("dev-clean", "test-clean"),
 ) -> pd.DataFrame:
-    """One row per MFA-aligned word occurrence that has CMU phones + >=1 synonym."""
+    """One row per MFA-aligned word occurrence that has CMU phones + >=1 synonym.
+
+    ``path`` is stored **relative to the LibriSpeech root**, e.g.
+    ``dev-clean/<spk>/<chapter>/<utt>.flac`` — so the DataFrame is portable
+    across machines. Resolve to absolute paths at load time with
+    :func:`resolve_audio_paths` (point it at your LibriSpeech root, e.g. via
+    the ``LIBRISPEECH_DIR`` environment variable).
+    """
     import cmudict
     from textgrids import TextGrid
 
-    dataset_path, textgrid_path = Path(dataset_path), Path(textgrid_path)
+    textgrid_path = Path(textgrid_path)
     cmu_cache = cmudict.dict()
 
     rows = []
@@ -109,12 +116,24 @@ def build_librispeech_dataframe(
                         "text": str(word.text),
                         "start": word.xmin,
                         "finish": word.xmax,
-                        "path": str((dataset_path / p.relative_to(p.parents[3]).with_suffix(".flac")).absolute()),
+                        # relative to the LibriSpeech root (mirrors the TextGrid tree)
+                        "path": str(p.relative_to(p.parents[3]).with_suffix(".flac")),
                         "phones": phones,
                         "synonyms": synonyms,
                         "speaker": p.parents[1].name,
                     })
     return pd.DataFrame(rows)
+
+
+def resolve_audio_paths(df: pd.DataFrame, librispeech_dir: str) -> pd.DataFrame:
+    """Return a copy of ``df`` with the relative ``path`` joined under
+    ``librispeech_dir``. Absolute paths are left unchanged (back-compatible)."""
+    import os
+
+    out = df.copy()
+    root = str(librispeech_dir)
+    out["path"] = out["path"].map(lambda p: p if os.path.isabs(p) else os.path.join(root, p))
+    return out
 
 
 # --------------------------------------------------------------------------- #
@@ -243,5 +262,5 @@ def sample_random_pairs(df: pd.DataFrame, n_pairs: int, seed: int = 0) -> List[T
 
 __all__ = [
     "build_librispeech_dataframe", "build_wordmaps", "filter_df", "phonetic_dist",
-    "sample_pairs_from_map", "sample_random_pairs", "samplers",
+    "resolve_audio_paths", "sample_pairs_from_map", "sample_random_pairs", "samplers",
 ]

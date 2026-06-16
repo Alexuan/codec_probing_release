@@ -20,12 +20,16 @@ from typing import Dict, List, Optional
 # Placeholders shown when a machine-specific path has not been set.
 _MIMO_DEFAULT = os.environ.get("MIMO_CHECKPOINT", "<path-to-MiMo-Audio-Tokenizer>")
 _SPAN_DEFAULT = os.environ.get("SPAN_SPEECH_DIR", "<path-to-SPAN-speech-corpus>")
+# LibriSpeech root (contains dev-clean/, test-clean/). df.pkl stores paths
+# relative to this; default to a copy placed under the repo's data/ dir.
+_LIBRISPEECH_DEFAULT = os.environ.get("LIBRISPEECH_DIR", "data/LibriSpeech")
 
 
 @dataclass
 class SemanticPhoneticConfig:
     """Exp 1 (Sec 2.3): word-pair Euclidean distance probing -> Fig 2."""
     word_pairs_dir: str = "./data/word_pairs"
+    librispeech_dir: str = field(default_factory=lambda: _LIBRISPEECH_DEFAULT)
     cache_dir: str = "./data/euclidean_cache"
     pool: str = "mean"
     n_pairs: int = 2000          # raise to 5-10k for the final figure
@@ -47,6 +51,7 @@ class ArticulatoryConfig:
 class SpeechTextCKAConfig:
     """Exp 3 (Sec 2.5): CKA between codec final-layer features and LLM text embeddings."""
     word_pairs_dir: str = "./data/word_pairs"
+    librispeech_dir: str = field(default_factory=lambda: _LIBRISPEECH_DEFAULT)
     cache_path: str = "./data/cka_results.pkl"
     # LLM paired with each codec (the checkpoints used to produce the paper's CKA table).
     text_models: Dict[str, str] = field(default_factory=lambda: {
